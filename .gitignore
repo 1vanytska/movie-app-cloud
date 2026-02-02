@@ -1,0 +1,29 @@
+# Java
+target/
+*.class
+*.jar
+.mvn/
+mvnw
+mvnw.cmd
+
+# Node / JS
+node_modules/
+dist/
+build/
+.next/
+npm-debug.log*
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# System
+.DS_Store
+Thumbs.db
+
+# Secrets & Local Env
+.env
+*.p12
+*.jks
+movie-app.zip

@@ -1,0 +1,272 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: movie-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: movie-backend
+  template:
+    metadata:
+      labels:
+        app: movie-backend
+    spec:
+      containers:
+      - name: movie-backend
+        image: europe-central2-docker.pkg.dev/project-269ffbda-5644-4a9c-a1b/movie-repo/movie-backend:latest
+        env:
+        - name: DB_URL
+          value: jdbc:postgresql://postgres:5432/postgres
+        - name: SPRING_JPA_HIBERNATE_DDL_AUTO
+          value: "update"
+        - name: RABBIT_HOST
+          value: rabbitmq
+        - name: FRONTEND_URL
+          value: "*"
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: movie-app-secrets
+              key: db-password
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: movie-backend
+spec:
+  selector:
+    app: movie-backend
+  ports:
+  - port: 8082
+    targetPort: 8082
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reviews-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: reviews-api
+  template:
+    metadata:
+      labels:
+        app: reviews-api
+    spec:
+      containers:
+      - name: reviews-api
+        image: europe-central2-docker.pkg.dev/project-269ffbda-5644-4a9c-a1b/movie-repo/reviews-api:latest
+        env:
+        - name: MONGO_URI
+          value: mongodb://mongo:27017/reviews
+        - name: GOOGLE_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: movie-app-secrets
+              key: google-client-id
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: reviews-api
+spec:
+  selector:
+    app: reviews-api
+  ports:
+  - port: 3006
+    targetPort: 3006
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: movie-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: movie-gateway
+  template:
+    metadata:
+      labels:
+        app: movie-gateway
+    spec:
+      containers:
+      - name: movie-gateway
+        image: europe-central2-docker.pkg.dev/project-269ffbda-5644-4a9c-a1b/movie-repo/movie-gateway:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: GOOGLE_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: movie-app-secrets
+              key: google-client-id
+        - name: GOOGLE_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: movie-app-secrets
+              key: google-client-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: movie-gateway-public
+spec:
+  type: LoadBalancer
+  selector:
+    app: movie-gateway
+  ports:
+  - port: 80
+    targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: europe-central2-docker.pkg.dev/project-269ffbda-5644-4a9c-a1b/movie-repo/frontend:latest
+        ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-public
+spec:
+  type: LoadBalancer
+  selector:
+    app: frontend
+  ports:
+  - port: 80
+    targetPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: elasticsearch
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: elasticsearch
+  template:
+    metadata:
+      labels:
+        app: elasticsearch
+    spec:
+      containers:
+      - name: elasticsearch
+        image: docker.elastic.co/elasticsearch/elasticsearch:8.11.1
+        env:
+        - name: discovery.type
+          value: single-node
+        - name: xpack.security.enabled
+          value: "false"
+        - name: xpack.security.http.ssl.enabled
+          value: "false"
+        - name: ES_JAVA_OPTS
+          value: "-Xms512m -Xmx512m"
+        resources:
+          limits:
+            memory: "1Gi"
+          requests:
+            memory: "512Mi"
+        ports:
+        - containerPort: 9200
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch
+spec:
+  selector:
+    app: elasticsearch
+  ports:
+  - port: 9200
+    targetPort: 9200
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: email-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: email-service
+  template:
+    metadata:
+      labels:
+        app: email-service
+    spec:
+      containers:
+      - name: email-service
+        image: europe-central2-docker.pkg.dev/project-269ffbda-5644-4a9c-a1b/movie-repo/email-service:latest
+        env:
+        - name: RABBIT_HOST
+          value: rabbitmq
+        - name: SPRING_ELASTICSEARCH_URIS
+          value: "http://elasticsearch:9200"
+        - name: SPRING_MAIL_HOST
+          value: "sandbox.smtp.mailtrap.io"
+        - name: SPRING_MAIL_PORT
+          value: "2525"
+        - name: SPRING_MAIL_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: movie-app-secrets
+              key: mail-username
+        - name: SPRING_MAIL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: movie-app-secrets
+              key: mail-password
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rabbitmq
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rabbitmq
+  template:
+    metadata:
+      labels:
+        app: rabbitmq
+    spec:
+      containers:
+      - name: rabbitmq
+        image: rabbitmq:3-management
+        ports:
+        - containerPort: 5672
+        - containerPort: 15672
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+spec:
+  selector:
+    app: rabbitmq
+  ports:
+  - name: amqp
+    port: 5672
+    targetPort: 5672
+  - name: management
+    port: 15672
+    targetPort: 15672
