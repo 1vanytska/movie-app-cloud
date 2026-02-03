@@ -20,4 +20,4 @@ EXPOSE 80
 
 CMD ["nginx", "-g", "daemon off;"]
 
-# add trigger
+# Add trigger for frontend
