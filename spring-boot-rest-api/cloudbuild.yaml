@@ -1,0 +1,16 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    dir: 'spring-boot-rest-api'
+    args: ['build', '-t', 'europe-central2-docker.pkg.dev/project-269ffbda-5644-4a9c-a1b/movie-repo/movie-backend:latest', '.']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'europe-central2-docker.pkg.dev/project-269ffbda-5644-4a9c-a1b/movie-repo/movie-backend:latest']
+
+  - name: 'gcr.io/cloud-builders/kubectl'
+    args: ['rollout', 'restart', 'deployment/movie-backend']
+    env:
+    - 'CLOUDSDK_COMPUTE_ZONE=europe-central2-a'
+    - 'CLOUDSDK_CONTAINER_CLUSTER=movie-cluster'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
